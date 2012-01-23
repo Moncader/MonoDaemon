@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonoDaemon", "MonoDaemon\MonoDaemon.csproj", "{62E04EE0-4FE1-4B37-825E-CF2891C34C5A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{62E04EE0-4FE1-4B37-825E-CF2891C34C5A}.Debug|x86.ActiveCfg = Debug|x86
+		{62E04EE0-4FE1-4B37-825E-CF2891C34C5A}.Debug|x86.Build.0 = Debug|x86
+		{62E04EE0-4FE1-4B37-825E-CF2891C34C5A}.Release|x86.ActiveCfg = Release|x86
+		{62E04EE0-4FE1-4B37-825E-CF2891C34C5A}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		StartupItem = MonoDaemon\MonoDaemon.csproj
+	EndGlobalSection
+EndGlobal
