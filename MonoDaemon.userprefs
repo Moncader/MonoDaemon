@@ -2,12 +2,13 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="MonoDaemon/Main.cs">
     <Files>
-      <File FileName="MonoDaemon/Main.cs" Line="575" Column="48" />
+      <File FileName="MonoDaemon/Main.cs" Line="428" Column="1" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
         <State expanded="True">
           <Node name="MonoDaemon" expanded="True">
+            <Node name="References" expanded="True" />
             <Node name="Main.cs" selected="True" />
           </Node>
         </State>
@@ -17,10 +18,9 @@
       </Pad>
       <Pad Id="MonoDevelop.Debugger.WatchPad">
         <State>
-          <Value>(pBytes[0] &lt;&lt; 24) +
-(pBytes[1] &lt;&lt; 16) +
-(pBytes[2] &lt;&lt; 8) +
-pBytes[3]</Value>
+          <Value>AppDomain.CurrentDomain.GetAssemblies()[4].GetTypes()</Value>
+          <Value>Shaft.ShaftItem</Value>
+          <Value>AppDomain.CurrentDomain.GetAssemblies()</Value>
         </State>
       </Pad>
       <Pad Id="ConnectionManagerPad">
@@ -29,7 +29,9 @@ pBytes[3]</Value>
     </Pads>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
-    <BreakpointStore />
+    <BreakpointStore>
+      <Breakpoint file="/Users/jason.parrott/work/MonoDaemon/MonoDaemon/Main.cs" line="427" />
+    </BreakpointStore>
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />
 </Properties>

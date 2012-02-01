@@ -15,12 +15,19 @@ namespace MonoDaemon
 		public static void Main(string[] args)
 		{
 			if (args.Length != 2) {
-				Console.WriteLine("Please provide a name for this daemon and a mode. Aborting.");
+				Console.WriteLine("Please provide a name for this daemon and a path to dll files to load. Aborting.");
 				return;
 			}
 			
 			string tName = args[0];
-			string tMode = args[1];
+			string tDllPath = args[1];
+			
+			Console.WriteLine("Starting up MonoDaemon...");
+			
+			foreach (string tPath in Directory.GetFiles(tDllPath, "*.dll")) {
+				Assembly.LoadFile(tPath);
+				Console.WriteLine("Loaded assembly " + tPath);
+			}
 			
 			Mono.Unix.Native.Syscall.unlink(tName);
 			
@@ -34,16 +41,13 @@ namespace MonoDaemon
 				}
 			};
 			
-			if (tMode == "daemon") {
-				Console.WriteLine("Starting up MonoDaemon...");
-				tSocket.Bind(tEndpoint);
-				tSocket.Listen(255);
-				while (true) {
-					Socket tConnection = tSocket.Accept();
-					Console.WriteLine("Got request.");
-					Thread tThread = new Thread(handleRequest);
-					tThread.Start(tConnection);
-				}
+			tSocket.Bind(tEndpoint);
+			tSocket.Listen(255);
+			while (true) {
+				Socket tConnection = tSocket.Accept();
+				Console.WriteLine("Got request.");
+				Thread tThread = new Thread(handleRequest);
+				tThread.Start(tConnection);
 			}
 		}
 		

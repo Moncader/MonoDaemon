@@ -174,7 +174,11 @@ class MonoClass
 
 }
 
-$tTest = new MonoClass('MonoDaemon.MainClass');
+$tEngine = new MonoClass('Shaft.ShaftItem,Feather');
+$tEngine->Set('Test.Me', 31);
+
+
+/*$tTest = new MonoClass('MonoDaemon.MainClass');
 echo $tTest->MyTestMethod() . "\n";
 echo $tTest->MyTestMethodString("Test string") . "\n";
 echo $tTest->MyTestMethodInt(12345) . "\n";
@@ -186,6 +190,6 @@ echo $tTest->MyTestMethodInt(0) . "\n";
 echo $tTest->MyTestMethodInt(-12) . "\n";
 echo $tTest->MyTestMethodInt(-122343) . "\n";
 //echo $tTest->MyTestMethodFloat(1.34) . "\n";
-echo $tTest->MyTestMethodBool(true) . "\n";
+echo $tTest->MyTestMethodBool(true) . "\n";*/
 MonoClass::destroy();
 
