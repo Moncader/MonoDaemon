@@ -26,6 +26,7 @@ class MonoClass
     private static $TYPE_INT = "\x05";
     private static $TYPE_FLOAT = "\x06";
     private static $TYPE_BOOL = "\x07";
+    private static $TYPE_VOID = "\x08";
 
     private $mName;
     public $_MonoClassHash;
@@ -33,6 +34,10 @@ class MonoClass
     public static function destroy() {
         if (MonoClass::$sSocket === null) return;
         socket_write(MonoClass::$sSocket, MonoClass::$END);
+        try {
+            socket_close(MonoClass::$sSocket);
+        } catch (Exception $e) {}
+        MonoClass::$sSocket = null;
     }
 
     private static function send($pData) {
@@ -73,32 +78,43 @@ class MonoClass
         $this->_MonoClassHash = $pHash;
     }
 
-    private function _createArgs($pArgs) {
+    function __destruct() {
+        if (MonoClass::$sSocket !== null) {
+            MonoClass::send(MonoClass::$STATE_DESTROY_CLASS . $this->_MonoClassHash);
+        }
+    }
+
+    private static function _createObject($pObject) {
+        if (is_null($pObject)) {
+            return MonoClass::$TYPE_NULL;
+        } else if (empty($pObject)) {
+            return MonoClass::$TYPE_VOID;
+        } else if (is_string($pObject)) {
+            return MonoClass::$TYPE_STRING . $pObject . MonoClass::$END;
+        } else if (is_bool($pObject)) {
+            return MonoClass::$TYPE_BOOL . ($pObject === true ? "\x01" : "\x00");
+        } else if (is_int($pObject)) {
+            return MonoClass::$TYPE_INT . 
+                pack('N', $pObject >= pow(2, 15) ? ($pObject - pow(2, 16)) : $pObject);
+        } else if (is_float($pObject)) {
+            throw new Exception('Floats are not yet supported as arguments.');
+        } else if (is_object($pObject)) {
+            if (is_a($pObject, 'MonoClass')) {
+                return MonoClass::$TYPE_POINTER . $pObject->_MonoClassHash;
+            } else {
+                throw new Exception('Generic objects are not yet supported for arguments.');
+            }
+        } else if (is_array($pObject)) {
+            throw new Exception('Arrays are not yet supported for arguments.');
+        }
+    }
+
+    private static function _createArgs($pArgs) {
         if (count($pArgs) === 0) return '';
 
         $tArgs = '';
         for ($i = 0, $il = count($pArgs); $i < $il; $i++) {
-            $tArg = $pArgs[$i];
-            if (is_null($tArg)) {
-                $tArgs .= MonoClass::$TYPE_NULL;
-            } else if (is_string($tArg)) {
-                $tArgs .= MonoClass::$TYPE_STRING . $tArg . MonoClass::$END;
-            } else if (is_bool($tArg)) {
-                $tArgs .= MonoClass::$TYPE_BOOL . ($tArg === true ? "\x01" : "\x00");
-            } else if (is_int($tArg)) {
-                $tArgs .= MonoClass::$TYPE_INT . 
-                    pack('N', $tArg >= pow(2, 15) ? ($tArg - pow(2, 16)) : $tArg);
-            } else if (is_float($tArg)) {
-                throw new Exception('Floats are not yet supported as arguments.');
-            } else if (is_object($tArg)) {
-                if (is_a($tArg, 'MonoClass')) {
-                    $tArgs .= MonoClass::$TYPE_POINTER . $tArg->_MonoClassHash;
-                } else {
-                    throw new Exception('Generic objects are not yet supported for arguments.');
-                }
-            } else if (is_array($tArg)) {
-                throw new Exception('Arrays are not yet supported for arguments.');
-            }
+            $tArgs .= MonoClass::_createObject($pArgs[$i]);
         }
 
         return MonoClass::$STATE_ARGUMENT . $tArgs . MonoClass::$END;
@@ -114,7 +130,11 @@ class MonoClass
                 case MonoClass::$TYPE_NULL:
                     return null;
                 case MonoClass::$TYPE_POINTER:
-                    return new MonoClass(null, $tData);
+                    if (strlen($tData) === 4) {
+                        return new MonoClass(null, $tData);
+                    } else {
+                        $tData .= MonoClass::recv($tData);
+                    }
                 case MonoClass::$TYPE_STRING:
                     if ($tData[strlen($tData) - 1] === "\x00") {
                         return substr($tData, 0, strlen($tData) - 1);
@@ -141,6 +161,8 @@ class MonoClass
                         $tData .= MonoClass::recv($tData);
                     }
                     break;
+                case MonoClass::$TYPE_VOID:
+                    return;
                 default:
                     throw new Exception('Unsupported object type returned.');
             }
@@ -148,16 +170,36 @@ class MonoClass
     }
 
     public function __call($pName, $pArgs) {
-        MonoClass::send(MonoClass::$STATE_CALL_CLASS_METHOD . $this->_MonoClassHash . $pName . MonoClass::$END . $this->_createArgs($pArgs) . MonoClass::$END);
+        MonoClass::send(MonoClass::$STATE_CALL_CLASS_METHOD . $this->_MonoClassHash . $pName . MonoClass::$END . MonoClass::_createArgs($pArgs) . MonoClass::$END);
 
         $result = MonoClass::_getObject();
         return $result;
     }
 
+    public static function callStatic($pClassName, $pName, $pArgs) {
+        MonoClass::send(MonoClass::$STATE_STATIC_CALL . $pClassName . MonoClass::$END . $pName . MonoClass::$END . MonoClass::_createArgs($pArgs) . MonoClass::$END);
+
+        $result = MonoClass::_getObject();
+        return $result;
+    }
+
+    public static function getStatic($pClassName, $pName) {
+
+    }
+
+    public static function setStatic($pClassName, $pName, $pValue) {
+
+    }
+
     public function __get($pName) {
+        MonoClass::send(MonoClass::$STATE_GET_CLASS_PROPERTY . $this->_MonoClassHash . $pName . MonoClass::$END);
+
+        $result = MonoClass::_getObject();
+        return $result;
     }
 
     public function __set($pName, $pValue) {
+        MonoClass::send(MonoClass::$STATE_SET_CLASS_PROPERTY . $this->_MonoClassHash . $pName . MonoClass::$END . MonoClass::_createObject($pValue));
     }
 
     private static function initializeSocket() {
@@ -174,9 +216,10 @@ class MonoClass
 
 }
 
-$tEngine = new MonoClass('Shaft.ShaftItem,Feather');
-$tEngine->Set('Test.Me', 31);
-
+$tItem = new MonoClass('Shaft.ShaftItem,Feather');
+$tItem->Set('Test.Me', 31);
+$tItem2 = $tItem->Get('Test.Me');
+//echo $tItem2->Value;
 
 /*$tTest = new MonoClass('MonoDaemon.MainClass');
 echo $tTest->MyTestMethod() . "\n";

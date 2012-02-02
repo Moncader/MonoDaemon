@@ -2,7 +2,7 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="MonoDaemon/Main.cs">
     <Files>
-      <File FileName="MonoDaemon/Main.cs" Line="428" Column="1" />
+      <File FileName="MonoDaemon/Main.cs" Line="76" Column="20" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
@@ -17,11 +17,7 @@
         <State expanded="True" selected="True" />
       </Pad>
       <Pad Id="MonoDevelop.Debugger.WatchPad">
-        <State>
-          <Value>AppDomain.CurrentDomain.GetAssemblies()[4].GetTypes()</Value>
-          <Value>Shaft.ShaftItem</Value>
-          <Value>AppDomain.CurrentDomain.GetAssemblies()</Value>
-        </State>
+        <State />
       </Pad>
       <Pad Id="ConnectionManagerPad">
         <State selected="True" />
@@ -30,7 +26,7 @@
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore>
-      <Breakpoint file="/Users/jason.parrott/work/MonoDaemon/MonoDaemon/Main.cs" line="427" />
+      <Breakpoint file="/Users/jason.parrott/work/MonoDaemon/MonoDaemon/Main.cs" line="483" />
     </BreakpointStore>
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />

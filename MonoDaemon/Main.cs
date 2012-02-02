@@ -71,7 +71,7 @@ namespace MonoDaemon
 								break;
 							}
 						} catch (OutOfBytesException) {
-							goto finish;
+							//goto finish;
 						}
 					} while (true);
 					
@@ -144,6 +144,7 @@ namespace MonoDaemon
 			private const byte TYPE_INT = 0x05;
 			private const byte TYPE_FLOAT = 0x06;
 			private const byte TYPE_BOOL = 0x07;
+			private const byte TYPE_VOID = 0x08;
 			
 			private Socket mConnection;
 			private byte mState = END;
@@ -166,78 +167,6 @@ namespace MonoDaemon
 			{
 				get {
 					return mIsFinished;
-				}
-			}
-			
-			/**
-			 * Communication protocol is as follows.
-			 * 
-			 * Requests:
-			 * 0x00 = end
-			 *   When all ends have been popped, communication is over.
-			 * 0x01 = static set to class property
-			 * 0x02 = static get to class property
-			 * 0x03 = static calling of class method
-			 * 0x04 = new class
-			 * 0x05 = destroy class
-			 * 0x06 = get class property
-			 * 0x07 = set class property
-			 * 0x08 = call class method
-			 * 0x70 = start argument
-			 *   type{ends with 0x00}
-			 *   length{4 bytes}
-			 *   data{length}
-			 * 
-			 * Response:
-			 * 0x00 = end
-			 *   When all ends have been popped, communication is over.
-			 * 0xFF = error
-			 * 0x01 = type
-			 *   type ()
-			 */
-			public bool Parse()
-			{
-				switch (mState) {
-					case END:
-						parseCommand();
-						break;
-				}
-				return true;
-			}
-			
-			private void parseCommand()
-			{
-				mState = get();
-				parseCurrent();
-			}
-			
-			private void parseCurrent() {
-				switch (mState) {
-					case END:
-						mIsFinished = true;
-						break;
-					case STATE_STATIC_SET_PROPERTY:
-						break;
-					case STATE_STATIC_GET_PROPERTY:
-						break;
-					case STATE_STATIC_CALL:
-						break;
-					case STATE_NEW_CLASS:
-						parseNewClass();
-						break;
-					case STATE_DESTROY_CLASS:
-						break;
-					case STATE_GET_CLASS_PROPERTY:
-						parseGetClassProperty();
-						break;
-					case STATE_SET_CLASS_PROPERTY:
-						parseSetClassProperty();
-						break;
-					case STATE_CALL_CLASS_METHOD:
-						parseCallClassMethod();
-						break;
-					default:
-						break;
 				}
 			}
 			
@@ -343,6 +272,7 @@ namespace MonoDaemon
 					case TYPE_NULL:
 						return new byte[] {};
 					case TYPE_POINTER:
+						return fromInt(pObject.GetHashCode());
 					case TYPE_INT:
 						return fromInt((int)pObject);
 					case TYPE_FLOAT:
@@ -417,30 +347,6 @@ namespace MonoDaemon
 				persistObject(pObject, tHash);
 			}
 			
-			private List<byte> mNewClassNameBytes = new List<byte>(64);
-			
-			private Dictionary<int, object> mObjects = new Dictionary<int, object>(64);
-			
-			private void parseNewClass()
-			{
-				while (true) {
-					byte tByte = get();
-					if (tByte == END) {
-						string tName = toASCIIString(mNewClassNameBytes.ToArray());
-						mNewClassNameBytes.Clear();
-						mState = END;
-						Type tType = Type.GetType(tName);
-						object tObject = Activator.CreateInstance(tType);
-						int tHash = tObject.GetHashCode();
-						persistObject(tObject, tHash);
-						mConnection.Send(fromInt(tHash));
-						return;
-					} else {
-						mNewClassNameBytes.Add(tByte);
-					}
-				}
-			}
-			
 			private List<byte> mArgumentsBuffer = new List<byte>(64);
 			private byte mArgumentType = END;
 			
@@ -507,29 +413,148 @@ namespace MonoDaemon
 				return tArgs.ToArray();
 			}
 			
-			private List<byte> mCallClassMethodBuffer = new List<byte>(64);
-			private int mCallClassMethodObject = -1;
+			/**
+			 * Communication protocol is as follows.
+			 * 
+			 * Requests:
+			 * 0x00 = end
+			 *   When all ends have been popped, communication is over.
+			 * 0x01 = static set to class property
+			 * 0x02 = static get to class property
+			 * 0x03 = static calling of class method
+			 * 0x04 = new class
+			 * 0x05 = destroy class
+			 * 0x06 = get class property
+			 * 0x07 = set class property
+			 * 0x08 = call class method
+			 * 0x70 = start argument
+			 *   type{ends with 0x00}
+			 *   length{4 bytes}
+			 *   data{length}
+			 * 
+			 * Response:
+			 * 0x00 = end
+			 *   When all ends have been popped, communication is over.
+			 * 0xFF = error
+			 * 0x01 = type
+			 *   type ()
+			 */
+			public bool Parse()
+			{
+				switch (mState) {
+					case END:
+						parseCommand();
+						break;
+				}
+				return true;
+			}
+			
+			private void parseCommand()
+			{
+				mState = get();
+				parseCurrent();
+			}
+			
+			private void parseCurrent() {
+				switch (mState) {
+					case END:
+						mIsFinished = true;
+						break;
+					case STATE_STATIC_SET_PROPERTY:
+						break;
+					case STATE_STATIC_GET_PROPERTY:
+						break;
+					case STATE_STATIC_CALL:
+						parseStaticCall();
+						break;
+					case STATE_NEW_CLASS:
+						parseNewClass();
+						break;
+					case STATE_DESTROY_CLASS:
+						parseDestroyClass();
+						break;
+					case STATE_GET_CLASS_PROPERTY:
+						parseGetClassProperty();
+						break;
+					case STATE_SET_CLASS_PROPERTY:
+						parseSetClassProperty();
+						break;
+					case STATE_CALL_CLASS_METHOD:
+						parseCallClassMethod();
+						break;
+					default:
+						break;
+				}
+			}
+			
+			
+			private List<byte> mNewClassNameBytes = new List<byte>(64);
+			
+			private Dictionary<int, object> mObjects = new Dictionary<int, object>(64);
+			
+			private void parseNewClass()
+			{
+				while (true) {
+					byte tByte = get();
+					if (tByte == END) {
+						string tName = toASCIIString(mNewClassNameBytes.ToArray());
+						mNewClassNameBytes.Clear();
+						mState = END;
+						Type tType = Type.GetType(tName);
+						object tObject = Activator.CreateInstance(tType);
+						int tHash = tObject.GetHashCode();
+						persistObject(tObject, tHash);
+						mConnection.Send(fromInt(tHash));
+						return;
+					} else {
+						mNewClassNameBytes.Add(tByte);
+					}
+				}
+			}
+			
+			private void parseDestroyClass()
+			{
+				mState = END;
+			}
+			
+		
+			private void parseStaticCall()
+			{
+				mState = END;
+			}
+			
+			private List<byte> mClassParserBuffer = new List<byte>(64);
+			private int mClassObject = -1;
 			private string mCallClassMethodMethod = null;
 			private object[] mCallClassMethodArgs = null;
 			private bool mCallClassMethodIsGettingArgs = false;
 			
+			private Type[] getObjectTypes(object[] pObjects)
+			{
+				Type[] tTypes = new Type[pObjects.Length];
+				for (int i = 0, il = pObjects.Length; i < il; i++) {
+					tTypes[i] = pObjects[i].GetType();
+				}
+				return tTypes;
+			}
+			
 			private void parseCallClassMethod()
 			{
 				while (true) {
-					if (mCallClassMethodObject == -1) {
+					if (mClassObject == -1) {
 						byte tByte = get();
-						mCallClassMethodBuffer.Add(tByte);
-						if (mCallClassMethodBuffer.Count == 4) {
-							mCallClassMethodObject = toInt(mCallClassMethodBuffer.ToArray());
-							mCallClassMethodBuffer.Clear();
+						mClassParserBuffer.Add(tByte);
+						if (mClassParserBuffer.Count == 4) {
+							mClassObject = toInt(mClassParserBuffer.ToArray());
+							mClassParserBuffer.Clear();
 						}
 					} else if (mCallClassMethodMethod == null) {
 						byte tByte = get();
 						if (tByte == END) {
-							mCallClassMethodMethod = toASCIIString(mCallClassMethodBuffer.ToArray());
-							mCallClassMethodBuffer.Clear();
+							mCallClassMethodMethod = toASCIIString(mClassParserBuffer.ToArray());
+							mClassParserBuffer.Clear();
 						} else {
-							mCallClassMethodBuffer.Add(tByte);
+							mClassParserBuffer.Add(tByte);
 						}
 					} else {
 						if (mCallClassMethodIsGettingArgs) {
@@ -538,15 +563,22 @@ namespace MonoDaemon
 						} else {
 							byte tByte = get();
 							if (tByte == END) {
-								object tObject = mObjects[mCallClassMethodObject];
-								MethodInfo tMethodInfo = tObject.GetType().GetMethod(mCallClassMethodMethod);
+								object tObject = mObjects[mClassObject];
+								MethodInfo tMethodInfo = tObject.GetType().GetMethod(mCallClassMethodMethod, getObjectTypes(mCallClassMethodArgs));
 								object tReturn = tMethodInfo.Invoke(tObject, mCallClassMethodArgs);
-								byte tType = getType(tReturn);
-								persistObject(tReturn);
-								byte[] tBytes = fromObject(tReturn, tType);
+								byte[] tBytes;
+								byte tType;
+								if (tMethodInfo.ReturnType == typeof(void)) {
+									tType = TYPE_VOID;
+									tBytes = new byte[0];
+								} else {
+									tType = getType(tReturn);
+									persistObject(tReturn);
+									tBytes = fromObject(tReturn, tType);
+								}
 								mCallClassMethodMethod = null;
 								mCallClassMethodArgs = null;
-								mCallClassMethodObject = -1;
+								mClassObject = -1;
 								mState = END;
 								mConnection.Send(merge(new byte[][] {
 									new byte[] { tType },
@@ -560,41 +592,69 @@ namespace MonoDaemon
 					}
 				}
 			}
+	
+			private string mClassPropertyName = null;
 			
 			private void parseGetClassProperty()
 			{
-				
+				while (true) {
+					if (mClassObject == -1) {
+						byte tByte = get();
+						mClassParserBuffer.Add(tByte);
+						if (mClassParserBuffer.Count == 4) {
+							mClassObject = toInt(mClassParserBuffer.ToArray());
+							mClassParserBuffer.Clear();
+						}
+					} else if (mClassPropertyName == null) {
+						byte tByte = get();
+						if (tByte == END) {
+							mClassPropertyName = toASCIIString(mClassParserBuffer.ToArray());
+							mClassParserBuffer.Clear();
+														
+							object tObject = mObjects[mClassObject];
+							MemberInfo[] tMemberInfoList = tObject.GetType().GetMember(mClassPropertyName);
+							object tValue;
+							
+							foreach (MemberInfo tMemberInfo in tMemberInfoList) {
+								switch (tMemberInfo.MemberType) {
+									case MemberTypes.Field:
+										FieldInfo tFieldInfo = (FieldInfo)tMemberInfo;
+										tValue = tFieldInfo.GetValue(tObject);
+										break;
+									case MemberTypes.Property:
+										PropertyInfo tPropertyInfo = (PropertyInfo)tMemberInfo;
+										tValue = tPropertyInfo.GetValue(tObject, null);
+										break;
+									default:
+										continue;
+								}
+								
+								byte tType = getType(tValue);
+								persistObject(tValue);
+								byte[] tBytes = fromObject(tValue, tType);
+								mClassPropertyName = null;
+								mClassObject = -1;
+								mState = END;
+								mConnection.Send(merge(new byte[][] {
+									new byte[] { tType },
+									tBytes
+								}));
+								
+								return;
+							}
+							
+							throw new Exception("No property with the name: " + mClassPropertyName);
+						} else {
+							mClassParserBuffer.Add(tByte);
+						}
+					}
+				}
 			}
 			
 			private void parseSetClassProperty()
 			{
-				
+				mState = END;
 			}
-		}
-		
-		public string MyTestMethod()
-		{
-			return "Hello World!";
-		}
-		public string MyTestMethodString(string pArg1)
-		{
-			return "Got: " + pArg1;
-		}
-		public int MyTestMethodInt(int pArg1)
-		{
-			return pArg1;
-		}
-		public float MyTestMethodFloat(float pArg1)
-		{
-			return pArg1;
-		}
-		public object MyTestMethodObject()
-		{
-			return new object();
-		}
-		public bool MyTestMethodBool(bool pArg1)
-		{
-			return pArg1;
 		}
 	}
 }
