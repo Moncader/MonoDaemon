@@ -28,6 +28,8 @@ class MonoClass
     private static $TYPE_BOOL = "\x07";
     private static $TYPE_VOID = "\x08";
 
+    private static $objects = null;
+
     private $mName;
     public $_MonoClassHash;
 
@@ -38,6 +40,7 @@ class MonoClass
             socket_close(MonoClass::$sSocket);
         } catch (Exception $e) {}
         MonoClass::$sSocket = null;
+        MonoClass::$objects = null;
     }
 
     private static function send($pData) {
@@ -46,17 +49,19 @@ class MonoClass
         }
     }
 
-    private static function recv($pBuffer = null) {
-        $tResult = $pBuffer === null ? '' : $pBuffer;
+    private static function recv() {
         $tBuffer = '';
-        if (socket_recv(MonoClass::$sSocket, $tBuffer, 256, 0) === false) {
+        if (socket_recv(MonoClass::$sSocket, $tBuffer, 1, 0) === false) {
             throw new Exception('Error reading socket.');
         }
         if ($tBuffer === '') {
             return false;
         }
-        $tResult .= $tBuffer;
-        return $tResult;
+        return $tBuffer;
+    }
+
+    private static function destroyObject(&$pObject) {
+        unset(MonoClass::$objects[$pObject->_MonoClassHash]);
     }
 
     function __construct($pName, $pHash = null) {
@@ -69,13 +74,14 @@ class MonoClass
             $pHash = '';
             MonoClass::send(MonoClass::$STATE_NEW_CLASS . $pName . MonoClass::$END);
             while (true) {
-                $pHash .= MonoClass::recv($pHash);
+                $pHash .= MonoClass::recv();
                 if (strlen($pHash) === 4) {
                     break;
                 }
             }
         }
         $this->_MonoClassHash = $pHash;
+        MonoClass::$objects[$pHash] = $this;
     }
 
     function __destruct() {
@@ -121,44 +127,44 @@ class MonoClass
     }
 
     private static function _getObject() {
-        $tData = MonoClass::recv();
-        $tType = $tData[0];
-        $tData = substr($tData, 1);
+        $tType = MonoClass::recv();
+        $tData = '';
 
         while (true) {
             switch ($tType) {
                 case MonoClass::$TYPE_NULL:
                     return null;
                 case MonoClass::$TYPE_POINTER:
+                    $tData .= MonoClass::recv();
                     if (strlen($tData) === 4) {
-                        return new MonoClass(null, $tData);
-                    } else {
-                        $tData .= MonoClass::recv($tData);
+                        if (array_key_exists($tData, MonoClass::$objects)) {
+                            return MonoClass::$objects[$tData];
+                        } else {
+                            return new MonoClass(null, $tData);
+                        }
                     }
+                    break;
                 case MonoClass::$TYPE_STRING:
+                    $tData .= MonoClass::recv();
                     if ($tData[strlen($tData) - 1] === "\x00") {
                         return substr($tData, 0, strlen($tData) - 1);
-                    } else {
-                        $tData .= MonoClass::recv($tData);
                     }
                     break;
                 case MonoClass::$TYPE_INT:
+                    $tData .= MonoClass::recv();
                     if (strlen($tData) === 4) {
                         $tData = unpack('N', $tData);
                         $tData = $tData[1];
                         if ($tData >= pow(2, 31)) $tData -= pow(2, 32);
                         return $tData;
-                    } else {
-                        $tData .= MonoClass::recv($tData);
                     }
                     break;
                 case MonoClass::$TYPE_FLOAT:
                     throw new Exception('Floats are not yet supported as return types.');
                 case MonoClass::$TYPE_BOOL:
+                    $tData .= MonoClass::recv();
                     if (strlen($tData) === 1) {
                         return $tData === "\x00" ? false : true;
-                    } else {
-                        $tData .= MonoClass::recv($tData);
                     }
                     break;
                 case MonoClass::$TYPE_VOID:
@@ -211,6 +217,7 @@ class MonoClass
         if (socket_connect(MonoClass::$sSocket, '/tmp/monodaemon') === false) {
             throw new Exception('Could not connect to socket.');
         }
+        MonoClass::$objects = array();
     }
 
 
@@ -218,21 +225,13 @@ class MonoClass
 
 $tItem = new MonoClass('Shaft.ShaftItem,Feather');
 $tItem->Set('Test.Me', 31);
+$tItem->Set('Test.Me.Out', "Test");
 $tItem2 = $tItem->Get('Test.Me');
-//echo $tItem2->Value;
+echo '31 == ' . $tItem2->Value . "\n";
+$tItem2 = $tItem2->Get('Out');
+echo 'Test == ' . $tItem2->Value . "\n";
+$tItem->Set('Test.Me.Out', "You", true);
+echo 'You == ' . $tItem2->Value . "\n";
 
-/*$tTest = new MonoClass('MonoDaemon.MainClass');
-echo $tTest->MyTestMethod() . "\n";
-echo $tTest->MyTestMethodString("Test string") . "\n";
-echo $tTest->MyTestMethodInt(12345) . "\n";
-echo $tTest->MyTestMethodInt(12) . "\n";
-echo $tTest->MyTestMethodInt(0xFFFFFFFF) . "\n";
-echo $tTest->MyTestMethodInt(0x7FFFFFFF) . "\n";
-echo $tTest->MyTestMethodInt(0x80000000) . "\n";
-echo $tTest->MyTestMethodInt(0) . "\n";
-echo $tTest->MyTestMethodInt(-12) . "\n";
-echo $tTest->MyTestMethodInt(-122343) . "\n";
-//echo $tTest->MyTestMethodFloat(1.34) . "\n";
-echo $tTest->MyTestMethodBool(true) . "\n";*/
 MonoClass::destroy();
 

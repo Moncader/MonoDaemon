@@ -347,6 +347,11 @@ namespace MonoDaemon
 				persistObject(pObject, tHash);
 			}
 			
+			private void unPersistObject(int pHash)
+			{
+				mObjects.Remove(pHash);
+			}
+			
 			private List<byte> mArgumentsBuffer = new List<byte>(64);
 			private byte mArgumentType = END;
 			
@@ -514,7 +519,15 @@ namespace MonoDaemon
 			
 			private void parseDestroyClass()
 			{
-				mState = END;
+				while (true) {
+					mClassParserBuffer.Add(get());
+					if (mClassParserBuffer.Count == 4) {
+						unPersistObject(toInt(mClassParserBuffer.ToArray()));
+						mClassParserBuffer.Clear();
+						mState = END;
+						return;
+					}
+				}
 			}
 			
 		
