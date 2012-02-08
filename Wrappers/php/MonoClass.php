@@ -28,8 +28,6 @@ class MonoClass
     private static $TYPE_BOOL = "\x07";
     private static $TYPE_VOID = "\x08";
 
-    private static $objects = null;
-
     private $mName;
     public $_MonoClassHash;
 
@@ -40,7 +38,6 @@ class MonoClass
             socket_close(MonoClass::$sSocket);
         } catch (Exception $e) {}
         MonoClass::$sSocket = null;
-        MonoClass::$objects = null;
     }
 
     private static function send($pData) {
@@ -60,14 +57,9 @@ class MonoClass
         return $tBuffer;
     }
 
-    private static function destroyObject(&$pObject) {
-        unset(MonoClass::$objects[$pObject->_MonoClassHash]);
-    }
-
     private static function generateFromPointer($pPointer) {
         $tObject = new MonoClass();
         $tObject->_MonoClassHash = $pPointer;
-        MonoClass::$objects[$pPointer] = $tObject;
         return $tObject;
     } 
 
@@ -94,8 +86,6 @@ class MonoClass
             }
         }
         $this->_MonoClassHash = $pHash;
-
-        MonoClass::$objects[$this->_MonoClassHash] = $this;
     }
 
     function __destruct() {
@@ -151,11 +141,7 @@ class MonoClass
                 case MonoClass::$TYPE_POINTER:
                     $tData .= MonoClass::recv();
                     if (strlen($tData) === 4) {
-                        if (array_key_exists($tData, MonoClass::$objects)) {
-                            return MonoClass::$objects[$tData];
-                        } else {
-                            return MonoClass::generateFromPointer($tData);
-                        }
+                        return MonoClass::generateFromPointer($tData);
                     }
                     break;
                 case MonoClass::$TYPE_STRING:
@@ -235,7 +221,6 @@ class MonoClass
         if (socket_connect(MonoClass::$sSocket, '/tmp/monodaemon') === false) {
             throw new Exception('Could not connect to socket.');
         }
-        MonoClass::$objects = array();
     }
 
 

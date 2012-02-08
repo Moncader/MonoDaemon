@@ -336,13 +336,29 @@ namespace MonoDaemon
 				return tBytes;
 			}
 		
+			private class PersistanceTracker
+			{
+				public object Object;
+				public int Count;
+				
+				public PersistanceTracker(object pObject, int pCount)
+				{
+					Object = pObject;
+					Count = pCount;
+				}
+			}
+			
 			private void persistObject(object pObject, int pHash)
 			{
 				if (pObject == null) {
 					return;
 				}
 				if (!pObject.GetType().IsPrimitive && !(pObject is string)) {
-					mObjects[pHash] = pObject;
+					if (mObjects.ContainsKey(pHash)) {
+						mObjects[pHash].Count++;
+					} else {
+						mObjects[pHash] = new PersistanceTracker(pObject, 1);
+					}
 				}
 			}
 			
@@ -357,7 +373,12 @@ namespace MonoDaemon
 			
 			private void unPersistObject(int pHash)
 			{
-				mObjects.Remove(pHash);
+				if (!mObjects.ContainsKey(pHash)) {
+					return;
+				}
+				if (--mObjects[pHash].Count == 0) {
+					mObjects.Remove(pHash);
+				}
 			}
 			
 			private List<byte> mArgumentsBuffer = new List<byte>(64);
@@ -504,7 +525,7 @@ namespace MonoDaemon
 			private List<byte> mNewClassNameBytes = new List<byte>(64);
 			private string mNewClassName = null;
 			
-			private Dictionary<int, object> mObjects = new Dictionary<int, object>(64);
+			private Dictionary<int, PersistanceTracker> mObjects = new Dictionary<int, PersistanceTracker>(64);
 			
 			private void parseNewClass()
 			{
