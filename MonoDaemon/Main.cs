@@ -85,6 +85,8 @@ namespace MonoDaemon
 					Console.WriteLine(e);
 					break;
 				}
+				
+				GC.Collect();
 			}
 		
 			finish: {
@@ -93,6 +95,8 @@ namespace MonoDaemon
 				}
 				Console.WriteLine("Shutting Down Thread");
 			}
+			
+			GC.Collect();
 		}
 		
 		private class Buffer
@@ -274,9 +278,9 @@ namespace MonoDaemon
 					case TYPE_POINTER:
 						return fromInt(pObject.GetHashCode());
 					case TYPE_INT:
-						return fromInt((int)pObject);
+						return fromInt(System.Convert.ToInt32(pObject));
 					case TYPE_FLOAT:
-						return fromFloat((float)pObject);
+						return fromFloat(System.Convert.ToSingle(pObject));
 					case TYPE_BOOL:
 						return fromBool((bool)pObject);
 					case TYPE_STRING:
@@ -298,7 +302,11 @@ namespace MonoDaemon
 				if (tType.IsPrimitive) {
 					if (pObject is int) {
 						return TYPE_INT;
+					} else if (pObject is long) {
+						return TYPE_INT;
 					} else if (pObject is float) {
+						return TYPE_FLOAT;
+					} else if (pObject is double) {
 						return TYPE_FLOAT;
 					} else if (pObject is bool) {
 						return TYPE_BOOL;
@@ -521,6 +529,7 @@ namespace MonoDaemon
 								object tObject = Activator.CreateInstance(tType, mArgs);
 								int tHash = tObject.GetHashCode();
 								mArgs = null;
+								mNewClassName = null;
 								persistObject(tObject, tHash);
 								mConnection.Send(fromInt(tHash));
 								return;
@@ -559,6 +568,9 @@ namespace MonoDaemon
 			
 			private Type[] getObjectTypes(object[] pObjects)
 			{
+				if (pObjects == null) {
+					return new Type[0];
+				}
 				Type[] tTypes = new Type[pObjects.Length];
 				for (int i = 0, il = pObjects.Length; i < il; i++) {
 					tTypes[i] = pObjects[i].GetType();

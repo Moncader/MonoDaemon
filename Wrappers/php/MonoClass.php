@@ -64,24 +64,38 @@ class MonoClass
         unset(MonoClass::$objects[$pObject->_MonoClassHash]);
     }
 
-    function __construct($pName, $pHash = null) {
+    private static function generateFromPointer($pPointer) {
+        $tObject = new MonoClass();
+        $tObject->_MonoClassHash = $pPointer;
+        MonoClass::$objects[$pPointer] = $tObject;
+        return $tObject;
+    } 
+
+    function __construct($pName = null) {
         if (MonoClass::$sSocket === null) {
             MonoClass::initializeSocket();
         }
-        $this->mName = $pName;
 
-        if ($pHash === null) {
-            $pHash = '';
-            MonoClass::send(MonoClass::$STATE_NEW_CLASS . $pName . MonoClass::$END);
-            while (true) {
-                $pHash .= MonoClass::recv();
-                if (strlen($pHash) === 4) {
-                    break;
-                }
+        if ($pName === null) {
+            return;
+        }
+
+        $this->mName = $pName;
+        $pHash = '';
+        if (func_num_args() === 1) {
+            MonoClass::send(MonoClass::$STATE_NEW_CLASS . $pName . MonoClass::$END . MonoClass::$END);
+        } else {
+            MonoClass::send(MonoClass::$STATE_NEW_CLASS . $pName . MonoClass::$END . MonoClass::_createArgs(array_slice(func_get_args(), 1)) . MonoClass::$END);
+        }
+        while (true) {
+            $pHash .= MonoClass::recv();
+            if (strlen($pHash) === 4) {
+                break;
             }
         }
         $this->_MonoClassHash = $pHash;
-        MonoClass::$objects[$pHash] = $this;
+
+        MonoClass::$objects[$this->_MonoClassHash] = $this;
     }
 
     function __destruct() {
@@ -93,8 +107,6 @@ class MonoClass
     private static function _createObject($pObject) {
         if (is_null($pObject)) {
             return MonoClass::$TYPE_NULL;
-        } else if (empty($pObject)) {
-            return MonoClass::$TYPE_VOID;
         } else if (is_string($pObject)) {
             return MonoClass::$TYPE_STRING . $pObject . MonoClass::$END;
         } else if (is_bool($pObject)) {
@@ -104,6 +116,8 @@ class MonoClass
                 pack('N', $pObject >= pow(2, 15) ? ($pObject - pow(2, 16)) : $pObject);
         } else if (is_float($pObject)) {
             throw new Exception('Floats are not yet supported as arguments.');
+        } else if (empty($pObject)) {
+            return MonoClass::$TYPE_VOID;
         } else if (is_object($pObject)) {
             if (is_a($pObject, 'MonoClass')) {
                 return MonoClass::$TYPE_POINTER . $pObject->_MonoClassHash;
@@ -140,7 +154,7 @@ class MonoClass
                         if (array_key_exists($tData, MonoClass::$objects)) {
                             return MonoClass::$objects[$tData];
                         } else {
-                            return new MonoClass(null, $tData);
+                            return MonoClass::generateFromPointer($tData);
                         }
                     }
                     break;
@@ -208,6 +222,10 @@ class MonoClass
         MonoClass::send(MonoClass::$STATE_SET_CLASS_PROPERTY . $this->_MonoClassHash . $pName . MonoClass::$END . MonoClass::_createObject($pValue));
     }
 
+    public function __toString() {
+        return $this->ToString();
+    }
+
     private static function initializeSocket() {
         MonoClass::$sSocket = socket_create(AF_UNIX, SOCK_STREAM, 0);
         if (MonoClass::$sSocket === false) {
@@ -222,16 +240,4 @@ class MonoClass
 
 
 }
-
-$tItem = new MonoClass('Shaft.ShaftItem,Feather');
-$tItem->Set('Test.Me', 31);
-$tItem->Set('Test.Me.Out', "Test");
-$tItem2 = $tItem->Get('Test.Me');
-echo '31 == ' . $tItem2->Value . "\n";
-$tItem2 = $tItem2->Get('Out');
-echo 'Test == ' . $tItem2->Value . "\n";
-$tItem->Set('Test.Me.Out', "You", true);
-echo 'You == ' . $tItem2->Value . "\n";
-
-MonoClass::destroy();
 
