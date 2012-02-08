@@ -494,25 +494,40 @@ namespace MonoDaemon
 			
 			
 			private List<byte> mNewClassNameBytes = new List<byte>(64);
+			private string mNewClassName = null;
 			
 			private Dictionary<int, object> mObjects = new Dictionary<int, object>(64);
 			
 			private void parseNewClass()
 			{
 				while (true) {
-					byte tByte = get();
-					if (tByte == END) {
-						string tName = toASCIIString(mNewClassNameBytes.ToArray());
-						mNewClassNameBytes.Clear();
-						mState = END;
-						Type tType = Type.GetType(tName);
-						object tObject = Activator.CreateInstance(tType);
-						int tHash = tObject.GetHashCode();
-						persistObject(tObject, tHash);
-						mConnection.Send(fromInt(tHash));
-						return;
+					if (mNewClassName == null) {
+						byte tByte = get();
+						if (tByte == END) {
+							mNewClassName = toASCIIString(mNewClassNameBytes.ToArray());
+							mNewClassNameBytes.Clear();
+						} else {
+							mNewClassNameBytes.Add(tByte);
+						}
 					} else {
-						mNewClassNameBytes.Add(tByte);
+						if (mIsGettingArgs) {
+							mArgs = getArugments();
+							mIsGettingArgs = false;
+						} else {
+							byte tByte = get();
+							if (tByte == END) {
+								mState = END;
+								Type tType = Type.GetType(mNewClassName);
+								object tObject = Activator.CreateInstance(tType, mArgs);
+								int tHash = tObject.GetHashCode();
+								mArgs = null;
+								persistObject(tObject, tHash);
+								mConnection.Send(fromInt(tHash));
+								return;
+							} else if (tByte == STATE_ARGUMENT) {
+								mIsGettingArgs = true;
+							}
+						}
 					}
 				}
 			}
@@ -539,8 +554,8 @@ namespace MonoDaemon
 			private List<byte> mClassParserBuffer = new List<byte>(64);
 			private int mClassObject = -1;
 			private string mCallClassMethodMethod = null;
-			private object[] mCallClassMethodArgs = null;
-			private bool mCallClassMethodIsGettingArgs = false;
+			private object[] mArgs = null;
+			private bool mIsGettingArgs = false;
 			
 			private Type[] getObjectTypes(object[] pObjects)
 			{
@@ -570,15 +585,15 @@ namespace MonoDaemon
 							mClassParserBuffer.Add(tByte);
 						}
 					} else {
-						if (mCallClassMethodIsGettingArgs) {
-							mCallClassMethodArgs = getArugments();
-							mCallClassMethodIsGettingArgs = false;
+						if (mIsGettingArgs) {
+							mArgs = getArugments();
+							mIsGettingArgs = false;
 						} else {
 							byte tByte = get();
 							if (tByte == END) {
 								object tObject = mObjects[mClassObject];
-								MethodInfo tMethodInfo = tObject.GetType().GetMethod(mCallClassMethodMethod, getObjectTypes(mCallClassMethodArgs));
-								object tReturn = tMethodInfo.Invoke(tObject, mCallClassMethodArgs);
+								MethodInfo tMethodInfo = tObject.GetType().GetMethod(mCallClassMethodMethod, getObjectTypes(mArgs));
+								object tReturn = tMethodInfo.Invoke(tObject, mArgs);
 								byte[] tBytes;
 								byte tType;
 								if (tMethodInfo.ReturnType == typeof(void)) {
@@ -590,7 +605,7 @@ namespace MonoDaemon
 									tBytes = fromObject(tReturn, tType);
 								}
 								mCallClassMethodMethod = null;
-								mCallClassMethodArgs = null;
+								mArgs = null;
 								mClassObject = -1;
 								mState = END;
 								mConnection.Send(merge(new byte[][] {
@@ -599,7 +614,7 @@ namespace MonoDaemon
 								}));
 								return;
 							} else if (tByte == STATE_ARGUMENT) {
-								mCallClassMethodIsGettingArgs = true;
+								mIsGettingArgs = true;
 							}
 						}
 					}

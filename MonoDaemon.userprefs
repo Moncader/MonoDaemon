@@ -2,7 +2,8 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="MonoDaemon/Main.cs">
     <Files>
-      <File FileName="MonoDaemon/Main.cs" Line="76" Column="20" />
+      <File FileName="MonoDaemon/Main.cs" Line="523" Column="33" />
+      <File FileName="../Feather/Shaft/ShaftItem.cs" Line="473" Column="41" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
@@ -26,7 +27,9 @@
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore>
-      <Breakpoint file="/Users/jason.parrott/work/MonoDaemon/MonoDaemon/Main.cs" line="483" />
+      <Breakpoint file="/Users/jason.parrott/work/MonoDaemon/MonoDaemon/Main.cs" line="64" />
+      <Breakpoint file="/Users/jason.parrott/work/MonoDaemon/MonoDaemon/Main.cs" line="488" />
+      <Breakpoint file="/Users/jason.parrott/work/MonoDaemon/MonoDaemon/Main.cs" line="579" />
     </BreakpointStore>
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />
