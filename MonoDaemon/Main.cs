@@ -61,11 +61,13 @@ namespace MonoDaemon
 				try {
 					Request tRequest = new Request(tBuffer, tConnection);
 					do {
-						tBuffer.Length = tConnection.Receive(tBytes, 256, SocketFlags.None);
+						if (tBuffer.Index >= tBuffer.Length - 1) {
+							tBuffer.Length = tConnection.Receive(tBytes, 256, SocketFlags.None);
+							tBuffer.Index = 0;
+						}
 						if (tBuffer.Length == 0) {
 							goto finish;
 						}
-						tBuffer.Index = 0;
 						try {
 							if (!tRequest.Parse()) {
 								break;
@@ -624,7 +626,7 @@ namespace MonoDaemon
 						} else {
 							byte tByte = get();
 							if (tByte == END) {
-								object tObject = mObjects[mClassObject];
+								object tObject = mObjects[mClassObject].Object;
 								MethodInfo tMethodInfo = tObject.GetType().GetMethod(mCallClassMethodMethod, getObjectTypes(mArgs));
 								object tReturn = tMethodInfo.Invoke(tObject, mArgs);
 								byte[] tBytes;
@@ -672,7 +674,7 @@ namespace MonoDaemon
 							mClassPropertyName = toASCIIString(mClassParserBuffer.ToArray());
 							mClassParserBuffer.Clear();
 														
-							object tObject = mObjects[mClassObject];
+							object tObject = mObjects[mClassObject].Object;
 							MemberInfo[] tMemberInfoList = tObject.GetType().GetMember(mClassPropertyName);
 							object tValue;
 							
